@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Admin Only</title></head>
+<body style="background-color: #ffebee;"> <h1>【極秘】管理者ダッシュボード</h1>
+    <p>現在の管理者: <strong th:text="${username}">管理者</strong></p>
+    
+    <div style="border: 2px solid red; padding: 10px;">
+        <p>ここはADMIN権限を持つ人しか絶対に見ることができません。</p>
+        <p>ユーザー一覧の削除や、システム設定変更などの「強い操作」を想定した場所です。</p>
+    </div>
+
+    <br>
+    <a th:href="@{/mypage}">マイページに戻る</a>
+    <form th:action="@{/logout}" method="post">
+        <button type="submit">ログアウト</button>
+    </form>
+</body>
+</html>

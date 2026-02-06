@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>My Page</title>
+</head>
+<body>
+    <h1>マイページ</h1>
+    <p>こんにちは、<strong th:text="${username}">ゲスト</strong>さん！</p>
+    <p>ログインに成功した人だけがこのメッセージを読めます。</p>
+
+    <div th:if="${username == 'admin'}" style="margin-top: 20px;">
+    <p>あなたは管理者です： <a th:href="@{/admin/dashboard}">管理者ダッシュボードへ</a></p>
+</div>
+
+<div th:if="${username == 'user'}" style="margin-top: 20px;">
+    <p>あなたは一般ユーザーです（管理者ページへのアクセス権はありません）。</p>
+    <a th:href="@{/admin/dashboard}">管理者ページに無理やりアクセスしてみる（403テスト）</a>
+</div>
+    <hr>
+
+    <form th:action="@{/logout}" method="post">
+        <button type="submit">ログアウトする</button>
+    </form>
+</body>
+</html>
