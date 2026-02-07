@@ -4,15 +4,18 @@ import javax.lang.model.element.ModuleElement.UsesDirective;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -30,6 +33,11 @@ public class SecurityConfig {
       )
       .formLogin(login -> login
         .defaultSuccessUrl("/mypage", true)
+        // 失敗時のハンドラー
+        .failureHandler(customAuthenticationFailureHandler())
+      )
+      .exceptionHandling(exception -> exception
+        .accessDeniedHandler(customAccessDeniedHandler())
       )
       .logout(logout -> logout
         .logoutSuccessUrl("/")
@@ -59,6 +67,30 @@ public class SecurityConfig {
       .build();
 
     return new InMemoryUserDetailsManager(user, adminUser);
+  }
+
+  // 例外ハンドラー
+  @Bean
+  public AuthenticationFailureHandler customAuthenticationFailureHandler() {
+    return (request, reaponse, exception) -> {
+      String errorMessage = "ユーザー名またはパスワードが正しくありません。";
+
+      if (exception instanceof BadCredentialsException) {
+        System.out.println("ログイン失敗: " + errorMessage);
+      }
+
+      request.getSession().setAttribute("errorMsg", errorMessage);
+      reaponse.sendRedirect("/login?error");
+    };
+  }
+
+  @Bean
+  public AccessDeniedHandler customAccessDeniedHandler() {
+    return (request, response, exception) -> {
+      String username = request.getUserPrincipal().getName();
+      System.err.println("不正アクセス: ユーザー [" + username + "] が " + request.getRequestURI() + "にアクセスしようとしました。");
+      response.sendRedirect("/access-denied");
+    };
   }
 }
 
