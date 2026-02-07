@@ -2,6 +2,7 @@ package com.example.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -9,6 +10,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -51,21 +53,29 @@ public class SecurityConfig {
 
   // 認証
   @Bean
-  public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-    String encodedUserPassword = passwordEncoder.encode("password");
-    String encodedAdminPassword = passwordEncoder.encode("admin123");
-    // 名簿の作成
-    UserDetails user = User.withUsername("user")
-      .password(encodedUserPassword)
-      .roles("USER")
-      .build();
+  public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder, AuthenticationEvents events) {
+    return username -> {
+      // ★まず、メモリ上のロック状態をチェック
+      if (events.isLocked(username)) {
+        System.err.println("SECURITY: ロック中のユーザー [" + username + "] によるアクセスを拒否しました。");
+        throw new LockedException("このアカウントはロックされています。");
+      }
 
-    UserDetails adminUser = User.withUsername("admin")
-      .password(encodedAdminPassword)
-      .roles("ADMIN")
-      .build();
+      // ユーザー情報の照合（本来はDB、今回はメモリ内の固定値）
+      if ("user".equals(username)) {
+        return User.withUsername("user")
+            .password(passwordEncoder.encode("password"))
+            .roles("USER")
+            .build();
+      } else if ("admin".equals(username)) {
+        return User.withUsername("admin")
+            .password(passwordEncoder.encode("admin123"))
+            .roles("ADMIN")
+            .build();
+      }
 
-    return new InMemoryUserDetailsManager(user, adminUser);
+      throw new UsernameNotFoundException("User not found");
+    };
   }
 
   // 例外ハンドラー
