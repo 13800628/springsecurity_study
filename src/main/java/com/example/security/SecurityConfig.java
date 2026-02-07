@@ -1,10 +1,7 @@
 package com.example.security;
 
-import javax.lang.model.element.ModuleElement.UsesDirective;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -17,33 +14,35 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
   
-  @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    // 認可
-    http
-      .authorizeHttpRequests(auth -> auth
-        // 認可ルール
-        .requestMatchers("/").permitAll()
-        .requestMatchers("/admin/**").hasRole("ADMIN")
-        .anyRequest().authenticated()
-      )
-      .formLogin(login -> login
-        .defaultSuccessUrl("/mypage", true)
-        // 失敗時のハンドラー
-        .failureHandler(customAuthenticationFailureHandler())
-      )
-      .exceptionHandling(exception -> exception
-        .accessDeniedHandler(customAccessDeniedHandler())
-      )
-      .logout(logout -> logout
-        .logoutSuccessUrl("/")
-      );
-    return http.build();
-  }
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+      // 認可
+      http
+          .authorizeHttpRequests(auth -> auth
+              // 認可ルール
+              .requestMatchers("/").permitAll()
+              .requestMatchers("/admin/**").hasRole("ADMIN")
+              .anyRequest().authenticated())
+          .formLogin(login -> login
+              // 成功
+              .defaultSuccessUrl("/mypage", true)
+              // 失敗
+              .failureHandler(customAuthenticationFailureHandler()))
+
+          .exceptionHandling(exception -> exception
+              .accessDeniedHandler(customAccessDeniedHandler()))
+
+          .logout(logout -> logout
+              .logoutSuccessUrl("/"));
+
+      return http.build();
+    }
 
   @Bean
   public PasswordEncoder passwordEncoder() {
@@ -72,24 +71,21 @@ public class SecurityConfig {
   // 例外ハンドラー
   @Bean
   public AuthenticationFailureHandler customAuthenticationFailureHandler() {
-    return (request, reaponse, exception) -> {
-      String errorMessage = "ユーザー名またはパスワードが正しくありません。";
-
-      if (exception instanceof BadCredentialsException) {
-        System.out.println("ログイン失敗: " + errorMessage);
-      }
-
-      request.getSession().setAttribute("errorMsg", errorMessage);
-      reaponse.sendRedirect("/login?error");
+    return (request, response, exception) -> {
+      System.out.println("DEBUG: FailureHandlerが呼ばれました");
+      response.sendRedirect("/login?error");
     };
   }
 
   @Bean
   public AccessDeniedHandler customAccessDeniedHandler() {
-    return (request, response, exception) -> {
-      String username = request.getUserPrincipal().getName();
-      System.err.println("不正アクセス: ユーザー [" + username + "] が " + request.getRequestURI() + "にアクセスしようとしました。");
-      response.sendRedirect("/access-denied");
+    return (request, response, accessDeniedException) -> {
+      String username = (request.getUserPrincipal() != null) ? request.getUserPrincipal().getName() : "匿名ユーザー";
+      System.err.println("ACCESS DENIED: " + username + " がアクセスを拒否されました。理由: " + accessDeniedException.getMessage());
+
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      response.setContentType("application/json;charset=UTF-8");
+      response.getWriter().write("{\"error\": \"Access Denied\", \"message\": \"管理者権限が必要です\"}");
     };
   }
 }
