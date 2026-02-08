@@ -1,5 +1,7 @@
 package com.example.security;
 
+import java.io.IOException;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.LockedException;
@@ -8,15 +10,21 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.web.filter.OncePerRequestFilter;
+import jakarta.servlet.FilterChain;
 
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
@@ -32,6 +40,14 @@ public class SecurityConfig {
               .requestMatchers("/").permitAll()
               .requestMatchers("/admin/**").hasRole("ADMIN")
               .anyRequest().authenticated())
+
+          .csrf(csrf -> csrf
+            // 1. CookieにCSRFトークンを保存する設定
+            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            // 2. CSRFトークンを適切にハンドリングするための設定(API向け)
+            .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+          )
+          .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
 
           // セッション管理。後出し
           .sessionManagement(session -> session
@@ -113,6 +129,17 @@ public class SecurityConfig {
   @Bean
   public HttpSessionEventPublisher HttpSessionEventPublisher() {
     return new HttpSessionEventPublisher();
+  }
+
+  private final class CsrfCookieFilter extends OncePerRequestFilter {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+      CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+      if (csrfToken != null) {
+        csrfToken.getToken();
+      }
+      filterChain.doFilter(request, response);
+    }
   }
 }
 
