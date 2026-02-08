@@ -15,6 +15,7 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -31,6 +32,16 @@ public class SecurityConfig {
               .requestMatchers("/").permitAll()
               .requestMatchers("/admin/**").hasRole("ADMIN")
               .anyRequest().authenticated())
+
+          // セッション管理。後出し
+          .sessionManagement(session -> session
+              // 同接の限度
+              .maximumSessions(1)
+              // 本来はfalseがデフォなので不要だが提示する
+              .maxSessionsPreventsLogin(false)
+              // 追い出され側のURL
+              .expiredUrl("/login?exprired"))
+
           .formLogin(login -> login
               // 成功
               .defaultSuccessUrl("/mypage", true)
@@ -97,6 +108,11 @@ public class SecurityConfig {
       response.setContentType("application/json;charset=UTF-8");
       response.getWriter().write("{\"error\": \"Access Denied\", \"message\": \"管理者権限が必要です\"}");
     };
+  }
+
+  @Bean
+  public HttpSessionEventPublisher HttpSessionEventPublisher() {
+    return new HttpSessionEventPublisher();
   }
 }
 
